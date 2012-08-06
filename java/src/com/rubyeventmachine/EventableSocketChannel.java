@@ -200,7 +200,7 @@ public class EventableSocketChannel implements EventableChannel {
 	 * Ought to be a big performance enhancer.
 	 * @return
 	 */
-	public boolean writeOutboundData() throws IOException {
+	synchronized public boolean writeOutboundData() throws IOException {
 		while (!outboundQ.isEmpty()) {
 			ByteBuffer b = outboundQ.getFirst();
 			if (b.remaining() > 0)

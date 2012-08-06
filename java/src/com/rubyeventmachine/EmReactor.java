@@ -431,7 +431,12 @@ public class EmReactor {
 	}
 
 	public void sendData (long sig, ByteBuffer bb) throws IOException {
-		Connections.get(sig).scheduleOutboundData( bb );
+		EventableChannel ec = Connections.get(sig);
+		ec.scheduleOutboundData( bb );
+		// HACK: In Ubuntu(java version 1.6.0_33), it is blocked by mSelector.select() in checkIO() and writeOutboundData() is not called.
+		if (!ec.isWatchOnly()) {
+			ec.writeOutboundData();
+		}
 	}
 
 	public void sendData (long sig, byte[] data) throws IOException {
