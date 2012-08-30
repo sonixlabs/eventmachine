@@ -203,16 +203,10 @@ public class EventableSocketChannel implements EventableChannel {
 	synchronized public boolean writeOutboundData() throws IOException {
 		while (!outboundQ.isEmpty()) {
 			ByteBuffer b = outboundQ.getFirst();
-			if (b.remaining() > 0)
+			while (b.remaining() > 0) {
 				channel.write(b);
-
-			// Did we consume the whole outbound buffer? If yes,
-			// pop it off and keep looping. If no, the outbound network
-			// buffers are full, so break out of here.
-			if (b.remaining() == 0)
-				outboundQ.removeFirst();
-			else
-				break;
+			}
+			outboundQ.removeFirst();
 		}
 
 		if (outboundQ.isEmpty() && !bCloseScheduled) {
