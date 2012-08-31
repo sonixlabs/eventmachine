@@ -35,6 +35,7 @@ import java.nio.*;
 import java.net.*;
 import java.util.concurrent.atomic.*;
 import java.security.*;
+import java.lang.reflect.UndeclaredThrowableException;
 
 public class EmReactor {
 	public final int EM_TIMER_FIRED = 100;
@@ -367,8 +368,12 @@ public class EmReactor {
 
 			// Fire all timers at this timestamp
 			ListIterator<Long> iter = callbacks.listIterator(0);
-			while (iter.hasNext()) {
-				eventCallback (0, EM_TIMER_FIRED, null, iter.next().longValue());
+			try {
+				while (iter.hasNext()) {
+					eventCallback (0, EM_TIMER_FIRED, null, iter.next().longValue());
+				}
+			} catch (UndeclaredThrowableException e) {
+				e.printStackTrace();
 			}
 		}
 	}
