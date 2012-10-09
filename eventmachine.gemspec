@@ -4,7 +4,7 @@ require File.expand_path('../lib/em/version', __FILE__)
 Gem::Specification.new do |s|
   s.name = 'sonixlabs-eventmachine-java'
   s.version = EventMachine::VERSION
-  s.homepage = 'http://rubyeventmachine.com'
+  s.homepage = 'https://github.com/sonixlabs/eventmachine'
   s.rubyforge_project = 'eventmachine'
 
   s.authors = ["Kazuhiro Yamada"]
