@@ -2,13 +2,13 @@
 require File.expand_path('../lib/em/version', __FILE__)
 
 Gem::Specification.new do |s|
-  s.name = 'eventmachine'
+  s.name = 'sonixlabs-eventmachine-java'
   s.version = EventMachine::VERSION
   s.homepage = 'http://rubyeventmachine.com'
   s.rubyforge_project = 'eventmachine'
 
-  s.authors = ["Francis Cianfrocca", "Aman Gupta"]
-  s.email   = ["garbagecat10@gmail.com", "aman@tmm1.net"]
+  s.authors = ["Kazuhiro Yamada"]
+  s.email   = ["sonixlabs@sonix.asia", "yamadakazu45@gmail.com"]
 
   s.files = `git ls-files`.split("\n")
   s.extensions = ["ext/extconf.rb", "ext/fastfilereader/extconf.rb"]
