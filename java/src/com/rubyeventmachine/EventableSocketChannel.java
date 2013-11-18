@@ -1,33 +1,33 @@
 /**
  * $Id$
- * 
+ *
  * Author:: Francis Cianfrocca (gmail: blackhedd)
  * Homepage::  http://rubyeventmachine.com
  * Date:: 15 Jul 2007
- * 
+ *
  * See EventMachine and EventMachine::Connection for documentation and
  * usage examples.
- * 
+ *
  *
  *----------------------------------------------------------------------------
  *
  * Copyright (C) 2006-07 by Francis Cianfrocca. All Rights Reserved.
  * Gmail: blackhedd
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of either: 1) the GNU General Public License
  * as published by the Free Software Foundation; either version 2 of the
  * License, or (at your option) any later version; or 2) Ruby's License.
- * 
+ *
  * See the file COPYING for complete licensing information.
  *
  *---------------------------------------------------------------------------
  *
- * 
+ *
  */
 
 /**
- * 
+ *
  */
 package com.rubyeventmachine;
 
@@ -48,317 +48,317 @@ import java.lang.reflect.Field;
 import java.security.*;
 
 public class EventableSocketChannel implements EventableChannel {
-	Selector selector;
-	SelectionKey channelKey;
-	SocketChannel channel;
+    Selector selector;
+    SelectionKey channelKey;
+    SocketChannel channel;
 
-	long binding;
-	LinkedList<ByteBuffer> outboundQ;
+    long binding;
+    LinkedList<ByteBuffer> outboundQ;
 
-	boolean bCloseScheduled;
-	boolean bConnectPending;
-	boolean bWatchOnly;
-	boolean bAttached;
-	boolean bNotifyReadable;
-	boolean bNotifyWritable;
-	
-	SSLEngine sslEngine;
-	SSLContext sslContext;
+    boolean bCloseScheduled;
+    boolean bConnectPending;
+    boolean bWatchOnly;
+    boolean bAttached;
+    boolean bNotifyReadable;
+    boolean bNotifyWritable;
 
-	public EventableSocketChannel (SocketChannel sc, long _binding, Selector sel) {
-		channel = sc;
-		binding = _binding;
-		selector = sel;
-		bCloseScheduled = false;
-		bConnectPending = false;
-		bWatchOnly = false;
-		bAttached = false;
-		bNotifyReadable = false;
-		bNotifyWritable = false;
-		outboundQ = new LinkedList<ByteBuffer>();
-	}
-	
-	public long getBinding() {
-		return binding;
-	}
+    SSLEngine sslEngine;
+    SSLContext sslContext;
 
-	public SocketChannel getChannel() {
-		return channel;
-	}
+    public EventableSocketChannel (SocketChannel sc, long _binding, Selector sel) {
+        channel = sc;
+        binding = _binding;
+        selector = sel;
+        bCloseScheduled = false;
+        bConnectPending = false;
+        bWatchOnly = false;
+        bAttached = false;
+        bNotifyReadable = false;
+        bNotifyWritable = false;
+        outboundQ = new LinkedList<ByteBuffer>();
+    }
 
-	public void register() throws ClosedChannelException {
-		if (channelKey == null) {
-			int events = currentEvents();
-			channelKey = channel.register(selector, events, this);
-		}
-	}
+    public long getBinding() {
+        return binding;
+    }
 
-	/**
-	 * Terminate with extreme prejudice. Don't assume there will be another pass through
-	 * the reactor core.
-	 */
-	public void close() {
-		if (channelKey != null) {
-			channelKey.cancel();
-			channelKey = null;
-		}
+    public SocketChannel getChannel() {
+        return channel;
+    }
 
-		if (bAttached) {
-			// attached channels are copies, so reset the file descriptor to prevent java from close()ing it
-			Field f;
-			FileDescriptor fd;
+    public void register() throws ClosedChannelException {
+        if (channelKey == null) {
+            int events = currentEvents();
+            channelKey = channel.register(selector, events, this);
+        }
+    }
 
-			try {
-				/* do _NOT_ clobber fdVal here, it will break epoll/kqueue on jdk6!
-				 * channelKey.cancel() above does not occur until the next call to select
-				 * and if fdVal is gone, we will continue to get events for this fd.
-				 *
-				 * instead, remove fdVal in cleanup(), which is processed via DetachedConnections,
-				 * after UnboundConnections but before NewConnections.
-				 */
+    /**
+     * Terminate with extreme prejudice. Don't assume there will be another pass through
+     * the reactor core.
+     */
+    public void close() {
+        if (channelKey != null) {
+            channelKey.cancel();
+            channelKey = null;
+        }
 
-				f = channel.getClass().getDeclaredField("fd");
-				f.setAccessible(true);
-				fd = (FileDescriptor) f.get(channel);
+        if (bAttached) {
+            // attached channels are copies, so reset the file descriptor to prevent java from close()ing it
+            Field f;
+            FileDescriptor fd;
 
-				f = fd.getClass().getDeclaredField("fd");
-				f.setAccessible(true);
-				f.set(fd, -1);
-			} catch (java.lang.NoSuchFieldException e) {
-				e.printStackTrace();
-			} catch (java.lang.IllegalAccessException e) {
-				e.printStackTrace();
-			}
+            try {
+                /* do _NOT_ clobber fdVal here, it will break epoll/kqueue on jdk6!
+                 * channelKey.cancel() above does not occur until the next call to select
+                 * and if fdVal is gone, we will continue to get events for this fd.
+                 *
+                 * instead, remove fdVal in cleanup(), which is processed via DetachedConnections,
+                 * after UnboundConnections but before NewConnections.
+                 */
 
-			return;
-		}
+                f = channel.getClass().getDeclaredField("fd");
+                f.setAccessible(true);
+                fd = (FileDescriptor) f.get(channel);
 
-		try {
-			channel.close();
-		} catch (IOException e) {
-		}
-	}
+                f = fd.getClass().getDeclaredField("fd");
+                f.setAccessible(true);
+                f.set(fd, -1);
+            } catch (java.lang.NoSuchFieldException e) {
+                e.printStackTrace();
+            } catch (java.lang.IllegalAccessException e) {
+                e.printStackTrace();
+            }
 
-	public void cleanup() {
-		if (bAttached) {
-			Field f;
-			try {
-				f = channel.getClass().getDeclaredField("fdVal");
-				f.setAccessible(true);
-				f.set(channel, -1);
-			} catch (java.lang.NoSuchFieldException e) {
-				e.printStackTrace();
-			} catch (java.lang.IllegalAccessException e) {
-				e.printStackTrace();
-			}
-		}
+      return;
+    }
 
-		channel = null;
-	}
-	
-	public void scheduleOutboundData (ByteBuffer bb) {
-		if (!bCloseScheduled && bb.remaining() > 0) {
-			if (sslEngine != null) {
-				try {
-					ByteBuffer b = ByteBuffer.allocate(32*1024); // TODO, preallocate this buffer.
-					sslEngine.wrap(bb, b);
-					b.flip();
-					outboundQ.addLast(b);
-				} catch (SSLException e) {
-					throw new RuntimeException ("ssl error");
-				}
-			}
-			else {
-				outboundQ.addLast(bb);
-			}
+    try {
+      channel.close();
+    } catch (IOException e) {
+    }
+  }
 
-			updateEvents();
-		}
-	}
-	
-	public void scheduleOutboundDatagram (ByteBuffer bb, String recipAddress, int recipPort) {
-		throw new RuntimeException ("datagram sends not supported on this channel");
-	}
-	
-	/**
-	 * Called by the reactor when we have selected readable.
-	 */
-	public void readInboundData (ByteBuffer bb) throws IOException {
-		if (channel.read(bb) == -1)
-			throw new IOException ("eof");
-	}
+  public void cleanup() {
+    if (bAttached) {
+      Field f;
+      try {
+        f = channel.getClass().getDeclaredField("fdVal");
+        f.setAccessible(true);
+        f.set(channel, -1);
+      } catch (java.lang.NoSuchFieldException e) {
+        e.printStackTrace();
+      } catch (java.lang.IllegalAccessException e) {
+        e.printStackTrace();
+      }
+    }
 
-	/**
-	 * Called by the reactor when we have selected writable.
-	 * Return false to indicate an error that should cause the connection to close.
-	 * TODO, VERY IMPORTANT: we're here because we selected writable, but it's always
-	 * possible to become unwritable between the poll and when we get here. The way
-	 * this code is written, we're depending on a nonblocking write NOT TO CONSUME
-	 * the whole outbound buffer in this case, rather than firing an exception.
-	 * We should somehow verify that this is indeed Java's defined behavior.
-	 * Also TODO, see if we can use gather I/O rather than one write at a time.
-	 * Ought to be a big performance enhancer.
-	 * @return
-	 */
-	synchronized public boolean writeOutboundData() throws IOException {
-		while (!outboundQ.isEmpty()) {
-			ByteBuffer b = outboundQ.getFirst();
-			while (b.remaining() > 0) {
-				channel.write(b);
-			}
-			outboundQ.removeFirst();
-		}
+    channel = null;
+  }
 
-		if (outboundQ.isEmpty() && !bCloseScheduled) {
-			updateEvents();
-		}
+  public void scheduleOutboundData (ByteBuffer bb) {
+    if (!bCloseScheduled && bb.remaining() > 0) {
+      if (sslEngine != null) {
+        try {
+          ByteBuffer b = ByteBuffer.allocate(32*1024); // TODO, preallocate this buffer.
+          sslEngine.wrap(bb, b);
+          b.flip();
+          outboundQ.addLast(b);
+        } catch (SSLException e) {
+          throw new RuntimeException ("ssl error");
+        }
+      }
+      else {
+        outboundQ.addLast(bb);
+      }
 
-		// ALWAYS drain the outbound queue before triggering a connection close.
-		// If anyone wants to close immediately, they're responsible for clearing
-		// the outbound queue.
-		return (bCloseScheduled && outboundQ.isEmpty()) ? false : true;
- 	}
-	
-	public void setConnectPending() {
-		bConnectPending = true;
-		updateEvents();
-	}
-	
-	/**
-	 * Called by the reactor when we have selected connectable.
-	 * Return false to indicate an error that should cause the connection to close.
-	 */
-	public boolean finishConnecting() throws IOException {
-		channel.finishConnect();
+      updateEvents();
+    }
+  }
 
-		bConnectPending = false;
-		updateEvents();
-		return true;
-	}
-	
-	public boolean scheduleClose (boolean afterWriting) {
-		// TODO: What the hell happens here if bConnectPending is set?
-		if (!afterWriting)
-			outboundQ.clear();
+  public void scheduleOutboundDatagram (ByteBuffer bb, String recipAddress, int recipPort) {
+    throw new RuntimeException ("datagram sends not supported on this channel");
+  }
 
-		if (outboundQ.isEmpty())
-			return true;
-		else {
-			updateEvents();
-			bCloseScheduled = true;
-			return false;
-		}
-	}
+  /**
+   * Called by the reactor when we have selected readable.
+   */
+  public void readInboundData (ByteBuffer bb) throws IOException {
+    if (channel.read(bb) == -1)
+      throw new IOException ("eof");
+  }
 
-	public void startTls() {
-		if (sslEngine == null) {
-			try {
-				sslContext = SSLContext.getInstance("TLS");
-				sslContext.init(null, null, null); // TODO, fill in the parameters.
-				sslEngine = sslContext.createSSLEngine(); // TODO, should use the parameterized version, to get Kerb stuff and session re-use.
-				sslEngine.setUseClientMode(false);
-			} catch (NoSuchAlgorithmException e) {
-				throw new RuntimeException ("unable to start TLS"); // TODO, get rid of this.				
-			} catch (KeyManagementException e) {
-				throw new RuntimeException ("unable to start TLS"); // TODO, get rid of this.				
-			}
-		}
-		System.out.println ("Starting TLS");
-	}
-	
-	public ByteBuffer dispatchInboundData (ByteBuffer bb) throws SSLException {
-		if (sslEngine != null) {
-			if (true) throw new RuntimeException ("TLS currently unimplemented");
-			System.setProperty("javax.net.debug", "all");
-			ByteBuffer w = ByteBuffer.allocate(32*1024); // TODO, WRONG, preallocate this buffer.
-			SSLEngineResult res = sslEngine.unwrap(bb, w);
-			if (res.getHandshakeStatus() == HandshakeStatus.NEED_TASK) {
-				Runnable r;
-				while ((r = sslEngine.getDelegatedTask()) != null) {
-					r.run();
-				}
-			}
-			System.out.println (bb);
-			w.flip();
-			return w;
-		}
-		else
-			return bb;
-	}
+  /**
+   * Called by the reactor when we have selected writable.
+   * Return false to indicate an error that should cause the connection to close.
+   * TODO, VERY IMPORTANT: we're here because we selected writable, but it's always
+   * possible to become unwritable between the poll and when we get here. The way
+   * this code is written, we're depending on a nonblocking write NOT TO CONSUME
+   * the whole outbound buffer in this case, rather than firing an exception.
+   * We should somehow verify that this is indeed Java's defined behavior.
+   * Also TODO, see if we can use gather I/O rather than one write at a time.
+   * Ought to be a big performance enhancer.
+   * @return
+   */
+  synchronized public boolean writeOutboundData() throws IOException {
+    while (!outboundQ.isEmpty()) {
+      ByteBuffer b = outboundQ.getFirst();
+      while (b.remaining() > 0) {
+        channel.write(b);
+      }
+      outboundQ.removeFirst();
+    }
 
-	public void setCommInactivityTimeout (long seconds) {
-		// TODO
-		System.out.println ("SOCKET: SET COMM INACTIVITY UNIMPLEMENTED " + seconds);
-	}
+    if (outboundQ.isEmpty() && !bCloseScheduled) {
+      updateEvents();
+    }
 
-	public Object[] getPeerName () {
-		Socket sock = channel.socket();
-		return new Object[]{ sock.getPort(), sock.getInetAddress().getHostAddress() };
-	}
+    // ALWAYS drain the outbound queue before triggering a connection close.
+    // If anyone wants to close immediately, they're responsible for clearing
+    // the outbound queue.
+    return (bCloseScheduled && outboundQ.isEmpty()) ? false : true;
+   }
 
-	public Object[] getSockName () {
-		Socket sock = channel.socket();
-		return new Object[]{ sock.getLocalPort(),
-							 sock.getLocalAddress().getHostAddress() };
-	}
+  public void setConnectPending() {
+    bConnectPending = true;
+    updateEvents();
+  }
 
-	public void setWatchOnly() {
-		bWatchOnly = true;
-		updateEvents();
-	}
-	public boolean isWatchOnly() { return bWatchOnly; }
+  /**
+   * Called by the reactor when we have selected connectable.
+   * Return false to indicate an error that should cause the connection to close.
+   */
+  public boolean finishConnecting() throws IOException {
+    channel.finishConnect();
 
-	public void setAttached() {
-		bAttached = true;
-	}
-	public boolean isAttached() { return bAttached; }
+    bConnectPending = false;
+    updateEvents();
+    return true;
+  }
 
-	public void setNotifyReadable (boolean mode) {
-		bNotifyReadable = mode;
-		updateEvents();
-	}
-	public boolean isNotifyReadable() { return bNotifyReadable; }
+  public boolean scheduleClose (boolean afterWriting) {
+    // TODO: What the hell happens here if bConnectPending is set?
+    if (!afterWriting)
+      outboundQ.clear();
 
-	public void setNotifyWritable (boolean mode) {
-		bNotifyWritable = mode;
-		updateEvents();
-	}
-	public boolean isNotifyWritable() { return bNotifyWritable; }
+    if (outboundQ.isEmpty())
+      return true;
+    else {
+      updateEvents();
+      bCloseScheduled = true;
+      return false;
+    }
+  }
 
-	private void updateEvents() {
-		if (channelKey == null)
-			return;
+  public void startTls() {
+    if (sslEngine == null) {
+      try {
+        sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, null, null); // TODO, fill in the parameters.
+        sslEngine = sslContext.createSSLEngine(); // TODO, should use the parameterized version, to get Kerb stuff and session re-use.
+        sslEngine.setUseClientMode(false);
+      } catch (NoSuchAlgorithmException e) {
+        throw new RuntimeException ("unable to start TLS"); // TODO, get rid of this.
+      } catch (KeyManagementException e) {
+        throw new RuntimeException ("unable to start TLS"); // TODO, get rid of this.
+      }
+    }
+    System.out.println ("Starting TLS");
+  }
 
-		int events = currentEvents();
+  public ByteBuffer dispatchInboundData (ByteBuffer bb) throws SSLException {
+    if (sslEngine != null) {
+      if (true) throw new RuntimeException ("TLS currently unimplemented");
+      System.setProperty("javax.net.debug", "all");
+      ByteBuffer w = ByteBuffer.allocate(32*1024); // TODO, WRONG, preallocate this buffer.
+      SSLEngineResult res = sslEngine.unwrap(bb, w);
+      if (res.getHandshakeStatus() == HandshakeStatus.NEED_TASK) {
+        Runnable r;
+        while ((r = sslEngine.getDelegatedTask()) != null) {
+          r.run();
+        }
+      }
+      System.out.println (bb);
+      w.flip();
+      return w;
+    }
+    else
+      return bb;
+  }
 
-		if (channelKey.interestOps() != events) {
-			channelKey.interestOps(events);
-		}
-	}
+  public void setCommInactivityTimeout (long seconds) {
+    // TODO
+    System.out.println ("SOCKET: SET COMM INACTIVITY UNIMPLEMENTED " + seconds);
+  }
 
-	private int currentEvents() {
-		int events = 0;
+  public Object[] getPeerName () {
+    Socket sock = channel.socket();
+    return new Object[]{ sock.getPort(), sock.getInetAddress().getHostAddress() };
+  }
 
-		if (bWatchOnly)
-		{
-			if (bNotifyReadable)
-				events |= SelectionKey.OP_READ;
+  public Object[] getSockName () {
+    Socket sock = channel.socket();
+    return new Object[]{ sock.getLocalPort(),
+               sock.getLocalAddress().getHostAddress() };
+  }
 
-			if (bNotifyWritable)
-				events |= SelectionKey.OP_WRITE;
-		}
-		else
-		{
-			if (bConnectPending)
-				events |= SelectionKey.OP_CONNECT;
-			else {
-				events |= SelectionKey.OP_READ;
+  public void setWatchOnly() {
+    bWatchOnly = true;
+    updateEvents();
+  }
+  public boolean isWatchOnly() { return bWatchOnly; }
 
-				if (!outboundQ.isEmpty())
-					events |= SelectionKey.OP_WRITE;
-			}
-		}
+  public void setAttached() {
+    bAttached = true;
+  }
+  public boolean isAttached() { return bAttached; }
 
-		return events;
-	}
+  public void setNotifyReadable (boolean mode) {
+    bNotifyReadable = mode;
+    updateEvents();
+  }
+  public boolean isNotifyReadable() { return bNotifyReadable; }
+
+  public void setNotifyWritable (boolean mode) {
+    bNotifyWritable = mode;
+    updateEvents();
+  }
+  public boolean isNotifyWritable() { return bNotifyWritable; }
+
+  private void updateEvents() {
+    if (channelKey == null)
+      return;
+
+    int events = currentEvents();
+
+    if (channelKey.interestOps() != events) {
+      channelKey.interestOps(events);
+    }
+  }
+
+  private int currentEvents() {
+    int events = 0;
+
+    if (bWatchOnly)
+    {
+      if (bNotifyReadable)
+        events |= SelectionKey.OP_READ;
+
+      if (bNotifyWritable)
+        events |= SelectionKey.OP_WRITE;
+    }
+    else
+    {
+      if (bConnectPending)
+        events |= SelectionKey.OP_CONNECT;
+      else {
+        events |= SelectionKey.OP_READ;
+
+        if (!outboundQ.isEmpty())
+          events |= SelectionKey.OP_WRITE;
+      }
+    }
+
+    return events;
+  }
 }
