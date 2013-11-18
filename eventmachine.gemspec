@@ -6,6 +6,7 @@ Gem::Specification.new do |s|
   s.version = EventMachine::VERSION
   s.homepage = 'https://github.com/sonixlabs/eventmachine'
   s.rubyforge_project = 'eventmachine'
+  s.platform = 'java' # jruby only
 
   s.authors = ["Kazuhiro Yamada"]
   s.email   = ["sonixlabs@sonix.asia", "yamadakazu45@gmail.com"]
